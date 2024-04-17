@@ -12,7 +12,6 @@ const alert = reactive({
 
 //state
 const item = reactive({
-    id: '',
     name: '',
     email: '',
     description: '',
@@ -20,40 +19,110 @@ const item = reactive({
     register_date: '',
 });
 
-//refs
-const file_img = ref([]);
-
 const handleItemSubmit = () => {
-    console.log('Form sumbited: ', item)
-    //TODO: Just make the validations and iterate over the formData to append the stuff after validation toRaw might work
+    item.register_date = new Date();
     
+    //turn the object into raw object
     let rawFormInfo = toRaw(item);
-    console.log("This is the raw form info for validation: ",rawFormInfo);
+    //validations
+    let isFormInfoValid = formValidations(rawFormInfo);
+    //set the reactive to show messages about whats wrong
+    alert.type = isFormInfoValid.alertValues.type;
+    alert.message = isFormInfoValid.alertValues.message;
+    
+    //if the info is valid append it from the reactive, maybe sanitization would be next
+    if (isFormInfoValid.valid) {
+        const formData = new FormData();
+        formData.append('id', '');
+        formData.append('name', item.name);
+        formData.append('email', item.email);
+        formData.append('description', item.description);
+        formData.append('image', item.image);
+        formData.append('register_date', item.register_date);
 
-    validations(rawFormInfo);
-
-    const formData = new FormData();
-    formData.append('id', item.id);
-    formData.append('name', item.name);
-    formData.append('email', item.email);
-    formData.append('description', item.description);
-    formData.append('image', item.image);
-    formData.append('dateTime', item.dateTime);
-
-    console.log("From formData: ", formData)
-
-    //TODO: make the HTTP request to my C# Server and follow tutorial 
+        console.log("From formData: ", formData)
+        //TODO: make the HTTP request to my C# Server and follow tutorial 
+    }   
 }
 
 const onFileChange = (event) => {
     item.image = event.target.files[0];
 }
 
-const validations = (rawFormObject) => {
+const formValidations = (rawFormObject) => {
     console.log("Here will the validations appear: ",rawFormObject);
+    
+    let alertValues = {
+        type: '',
+        message: ''
+    }
+    if(Object.values(rawFormObject).some(value => value === '')){
+        alertValues.type = 'Error';
+        alertValues.message = 'All fields in form are mandatory';
+        return { 
+            valid: false,
+            alertValues
+        }
+    }
+    for(let [key, value] of Object.entries(rawFormObject)){
+        if (key === 'name') {
+            if(value.length <= 3 || value.length > 50){
+                alertValues.type = 'Error';
+                alertValues.message = 'The name is too long or too short...';
+                return { 
+                    valid: false,
+                    alertValues
+                }
+            }
+        }
+        if (key === 'email') {
+            if (!validEmail(value)) {
+                alertValues.type = 'Error';
+                alertValues.message = 'Wrong or invalid email';
+                return { 
+                    valid: false,
+                    alertValues
+                }   
+            }
+        }
+        if (key === 'description') {
+            if(value.length <= 3 || value.length > 200){
+                alertValues.type = 'Error';
+                alertValues.message = 'The description is too long or too short...';
+                return { 
+                    valid: false,
+                    alertValues
+                }
+            }
+        }
+        if(key === 'image'){
+            if (value === null) {
+                alertValues.type = 'Error';
+                alertValues.message = 'You must insert an image in the form.';
+                return { 
+                    valid: false,
+                    alertValues
+                }
+            }
+            if (!validImageType(value.type)){
+                alertValues.type = 'Error';
+                alertValues.message = 'Invalid image type, only JPEG, JPG and PNG allowed';
+                return { 
+                    valid: false,
+                    alertValues
+                }
+            }
+        }
+    }
+    alertValues.type = 'Success';
+    alertValues.message = 'Information uploaded correctly.';
+    return { 
+        valid: true,
+        alertValues
+    }
 }
 
-const imageType = (fileType) => {
+const validImageType = (fileType) => {
     let type = false;
     switch (fileType) {
         case 'image/jpeg':
@@ -66,7 +135,19 @@ const imageType = (fileType) => {
     }
 }
 
+const validEmail = (email) => {
+    const regex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return regex.test(email);
+}    
 
+
+const validImageSize = (fileSize) => {
+    let validSize = false;
+    if (fileSize < 8000 || fileSize < 1600) {
+       validSize = true;
+    }
+    return validSize;
+}
 
 </script>
 
@@ -98,7 +179,7 @@ const imageType = (fileType) => {
                 <label for="file" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded cursor-pointer hover:bg-indigo-700">Select item images</label>
                 <input id="file" class="hidden" type="file" v-on:change.prevent="onFileChange"/>
             </div>
-            <div class="mb-5">
+            <div class="mb-5 hidden">
                 <label for="register_date" class="block text-gray-700 uppercase font-bold">Register date</label>
                 <input id="register_date" type="date" v-model="item.register_date" placeholder="Register date" class="border-2 w-full p-2 mt-2 placeholder-gray-400 rounded-md"/>
             </div>
